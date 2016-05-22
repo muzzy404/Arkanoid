@@ -3,6 +3,8 @@
 
 #define screenWidth 800
 #define screenHight 600
+#define ballSpeed 5.0
+#define ballRadius 10.0
 
 class GameData{
 	char *lvlMap;
@@ -17,50 +19,59 @@ public:
 	void loseLife() { if (life > 0) life--; };
 };
 
-class Visual : public sf::Drawable{
-	int x, y;
-	int width, height;
+class Ball{
+	sf::CircleShape shape;
+	sf::Vector2f speed{-ballSpeed, -ballSpeed};
 public:
-	Visual() { x = 0; y = 0; };
-	Visual(int x0, int y0) { x = x0; y = y0; };
-	int getX() { return x; };
-	int getY() { return y; };
-	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const = 0;
+	Ball(float startX, float startY)
+    {
+        shape.setPosition(startX, startY);
+        shape.setRadius(ballRadius);
+        shape.setFillColor(sf::Color::Blue);
+        shape.setOrigin(ballRadius, ballRadius);
+	};
+	sf::CircleShape getBall(){ return shape; }
+	//получить параметры мячика
+	float x()      { return shape.getPosition().x; }
+	float y()      { return shape.getPosition().y; }
+	float left()   { return x() - shape.getRadius(); }
+	float right()  { return x() + shape.getRadius(); }
+	float top()    { return y() - shape.getRadius(); }
+	float bottom() { return y() + shape.getRadius(); }
+	void update();
 };
 
-class Dinamic : public Visual{
-	int speed;                  //the numb of cycle till the next redraw method
-	int tillRedraw;
-	virtual void moveObj() = 0; //change coordinates of object
-public:
-	Dinamic(int startSpeed) { speed = startSpeed; };
-	void drawCycle() { tillRedraw--; };
-	int getTillRedraw() { return tillRedraw; };
-};
+void Ball::update()
+{
+	shape.move(speed);
+	//Мячик должен находиться внутри экрана
+	//Проверки местоположения и последующие настойки скорости
+    //горизонтальная скорость
+	if(left() < 0) speed.x = ballSpeed;
+		else if(right() > screenWidth) speed.x = -ballSpeed;
+    //вертикальная скорость
+    if(top() < 0) speed.y = ballSpeed;
+		else if(bottom() > screenHight) speed.y = -ballSpeed;
+    }
 
 int main()
 {
 	sf::RenderWindow window(sf::VideoMode(screenWidth, screenHight), "Arkanoid");
+	window.setFramerateLimit(60);
+	
+	//объекты
+	Ball ball{screenWidth / 2, screenHight / 2};
+	
+	while(true)
+    {
+        window.clear(sf::Color::Black);
 
-	while (window.isOpen())
-	{
-		sf::Event event;
-		while (window.pollEvent(event))
-		{
-			switch (event.type)
-			{
-			case sf::Event::Closed:
-				window.close();
-				break;
-			case sf::Event::KeyPressed:
-				if (event.key.code == sf::Keyboard::Escape)
-					window.close();
-			}
-		}
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) break;
 
-		window.clear();
-		window.display();
-	}
+        ball.update();
 
+        window.draw(ball.getBall());
+        window.display();
+    }
 	return 0;
 }
