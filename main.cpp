@@ -1,15 +1,15 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 
-#define screenWidth 1000
+#define screenWidth 800
 #define screenHight 600
-#define ballRadius  8.0
-#define platformWidth (10 * ballRadius)  
-#define platformHeight  (2 * ballRadius) 
-#define gameFieldWidth (0.60 * screenWidth)
-#define gameFieldHight (0.80 * screenHight)
+#define ballRadius  6.0
+#define platformWidth  (10.0 * ballRadius)  
+#define platformHeight (2.0 * ballRadius) 
+#define gameFieldWidth (0.50 * screenWidth)
+#define gameFieldHight (0.90 * screenHight)
 #define fieldBorderX   (0.05 * screenWidth)
-#define fieldBorderY   (0.10 * screenHight)
+#define fieldBorderY   (0.05 * screenHight)
 
 class GameData{
 	char *lvlMap;
@@ -52,15 +52,21 @@ class Ball : public DinamicVisual{
 	bool lose;
 public:
 	sf::CircleShape shape;
-	Ball(float startX, float startY, float ballSpeed)
+	void setStartPosition()
+	{
+		float startX = gameFieldWidth / 2.0 + fieldBorderX + platformWidth / 2.0 - ballRadius;
+		float startY = gameFieldHight + fieldBorderY - 3.0 * platformHeight;
+		shape.setPosition(startX, startY);
+	}
+	Ball(float ballSpeed)
     {
+		setStartPosition();
 		lose = false;
 		d_speed = ballSpeed;
 		speed.x = d_speed;
-		speed.y = d_speed;
-		shape.setPosition(startX, startY);
+		speed.y = -d_speed;
         shape.setRadius(ballRadius);
-        shape.setFillColor(sf::Color::Blue);
+        shape.setFillColor(sf::Color::Yellow);
         shape.setOrigin(ballRadius, ballRadius);
 	};
 	void set_d_speed(float newSpeed){ d_speed = newSpeed; }
@@ -98,14 +104,16 @@ public:
 };
 
 class BackGround{
+	sf::Texture texture;
 public:
-	sf::RectangleShape shape;
+	sf::Sprite sprite;
+	//sf::RectangleShape shape;
 	BackGround(float startX, float startY)
 	{
-		shape.setPosition(startX, startY);
-		sf::Vector2f gameFieldSize{gameFieldWidth, gameFieldHight};
-		shape.setSize(gameFieldSize);
-		shape.setFillColor(sf::Color::Black);
+		if (!texture.loadFromFile("backGround.png"))
+			std::cout << "can't find a backGround image\n";
+		sprite.setTexture(texture);
+		sprite.setPosition(startX, startY);
 	};
 };
 
@@ -121,6 +129,7 @@ void Ball::update()
 		else if (right() > (fieldBorderX + gameFieldWidth) - d_speed) speed.x = -d_speed;
 		//вертикальная скорость
 		if (top() < fieldBorderY + d_speed) speed.y = d_speed;
+		//можно раскомментировать следущую строчку для бесконечного перемещения шарика внутри поля
 		//else if (bottom() > (fieldBorderY + gameFieldHight) - d_speed) speed.y = -d_speed;
 		else if (bottom() > (fieldBorderY + gameFieldHight) - d_speed)
 		{
@@ -169,14 +178,17 @@ int main()
 	window.setFramerateLimit(60);
 	
 	//объекты
-	Ball ball{(gameFieldWidth / 2.0 + fieldBorderX), (gameFieldHight / 2.0 + fieldBorderY), 4.0};
+	Ball ball{5.0};
 	BackGround bkGround{fieldBorderX, fieldBorderY};
 	Platform platform{ (gameFieldWidth / 2.0 + fieldBorderX), (fieldBorderY + gameFieldHight), 8.0};
 	Collisions collisions;
 
+	sf::Event event;
+
+	bool gameStart = false;
+
 	while(window.isOpen())
     {
-		sf::Event event;
 		while (window.pollEvent(event))
 		{
 			switch (event.type)
@@ -187,18 +199,28 @@ int main()
 			case sf::Event::KeyPressed:
 				if (event.key.code == sf::Keyboard::Escape)
 					window.close();
+				break;
 			}
+		
 		}
 		
-		ball.update();
-		platform.update();
-		collisions.ballAndPlatform(platform, ball);
+		if (gameStart)
+		{
+			ball.update();
+			platform.update();
+			collisions.ballAndPlatform(platform, ball);
+		}
 		
 		window.clear(sf::Color::White);
-		window.draw(bkGround.shape);
+		window.draw(bkGround.sprite);
         window.draw(ball.shape);
 		window.draw(platform.shape);
         window.display();
+
+		while (!gameStart){
+			window.pollEvent(event);
+			if (event.key.code == sf::Keyboard::Space) gameStart = true;
+		}
     }
 	return 0;
 }
