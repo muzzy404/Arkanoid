@@ -4,13 +4,12 @@
 #define screenWidth 1000
 #define screenHight 600
 #define ballRadius  8.0
-#define platformWidth (6 * ballRadius)  
+#define platformWidth (10 * ballRadius)  
 #define platformHeight  (2 * ballRadius) 
 #define gameFieldWidth (0.60 * screenWidth)
 #define gameFieldHight (0.80 * screenHight)
 #define fieldBorderX   (0.05 * screenWidth)
 #define fieldBorderY   (0.10 * screenHight)
-
 
 class GameData{
 	char *lvlMap;
@@ -30,6 +29,9 @@ protected:
 	sf::Vector2f speed;
 	float d_speed;
 public:
+	void setSpeedX(float newSpeed){ speed.x = newSpeed; }
+	void setSpeedY(float newSpeed){ speed.y = newSpeed; }
+	float get_d_speed(){ return d_speed; }
 	virtual void update()  = 0;
 	virtual float x() = 0;
 	virtual float y() = 0;
@@ -39,11 +41,20 @@ public:
 	virtual float bottom() = 0;
 };
 
+template <class firstClass, class secondClass>
+bool objectsIntersection(firstClass& first, secondClass& second)
+{
+    return ((first.right()  >= second.left()) && (first.left() <= second.right())
+		 && (first.bottom() >= second.top() ) && (first.top() <= second.bottom()));
+}
+
 class Ball : public DinamicVisual{
+	bool lose;
 public:
 	sf::CircleShape shape;
 	Ball(float startX, float startY, float ballSpeed)
     {
+		lose = false;
 		d_speed = ballSpeed;
 		speed.x = d_speed;
 		speed.y = d_speed;
@@ -71,7 +82,7 @@ public:
 		d_speed = platformSpeed;
 		speed.x = 0.0;
 		speed.y = 0.0;
-		shape.setPosition(startX, startY - platformHeight);
+		shape.setPosition(startX, startY - 2 * platformHeight);
         shape.setSize({platformWidth, platformHeight});
         shape.setFillColor(sf::Color::Red);
         shape.setOrigin((platformWidth / 2.0), (platformHeight / 2.0));
@@ -100,15 +111,25 @@ public:
 
 void Ball::update()
 {
-	shape.move(speed);
-	//Мячик должен находиться внутри игрового поля
-	//Проверки местоположения и последующие настойки скорости
-    //горизонтальная скорость
-	if (left() < fieldBorderX) speed.x = d_speed;
-		else if (right() > (fieldBorderX + gameFieldWidth)) speed.x = -d_speed;
-    //вертикальная скорость
-	if (top() < fieldBorderY) speed.y = d_speed;
-	else if (bottom() > (fieldBorderY + gameFieldHight)) speed.y = -d_speed;
+	if (!lose)
+	{
+		shape.move(speed);
+		//Мячик должен находиться внутри игрового поля
+		//Проверки местоположения и последующие настойки скорости
+		//горизонтальная скорость
+		if (left() < fieldBorderX + d_speed) speed.x = d_speed;
+		else if (right() > (fieldBorderX + gameFieldWidth) - d_speed) speed.x = -d_speed;
+		//вертикальная скорость
+		if (top() < fieldBorderY + d_speed) speed.y = d_speed;
+		//else if (bottom() > (fieldBorderY + gameFieldHight) - d_speed) speed.y = -d_speed;
+		else if (bottom() > (fieldBorderY + gameFieldHight) - d_speed)
+		{
+			speed.x = 0.0;
+			speed.y = 0.0;
+			lose = true;
+			std::cout << "Game over!\n";
+		}
+	}
 }
 
 void Platform::update()
@@ -117,14 +138,30 @@ void Platform::update()
 	//Платформа должена находиться внутри игрового поля
 	//Проверка нажатия стрелок клавиатуры для перемещения платфомы
 	//Если есть нажание, необходимо изменить скорость
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) && left() > fieldBorderX + d_speed)
+	if( (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) && (left() > fieldBorderX + d_speed))
 		speed.x = -d_speed;
-	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) && right() < (fieldBorderX + gameFieldWidth) - d_speed)
+	else if((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) && (right() < (fieldBorderX + gameFieldWidth) - d_speed))
 			speed.x = d_speed;
 		//если нажатия нет или платфома достигла края игрового поля, остановить движение
         else
             speed.x = 0.0;
-    }
+}
+
+class Collisions{
+public:
+	void ballAndPlatform(Platform& platformObj, Ball& ballObj)
+	{
+		//проверяем пересечение мяча и платформы
+		if (objectsIntersection(platformObj, ballObj)){
+			//необходимо направить мяч вверх
+			ballObj.setSpeedY(-1.0 * (ballObj.get_d_speed()));
+			//направление по оси x зависит от того, на какое место платформы прилетел мяч
+			if (ballObj.x() < platformObj.x()) ballObj.setSpeedX(-1.0 * (ballObj.get_d_speed()));
+			                              else ballObj.setSpeedX(ballObj.get_d_speed());
+		}
+		else return;
+	};
+};
 
 int main()
 {
@@ -132,9 +169,10 @@ int main()
 	window.setFramerateLimit(60);
 	
 	//объекты
-	Ball ball{(screenWidth / 2.0), (screenHight / 2.0), 6.0};
+	Ball ball{(gameFieldWidth / 2.0 + fieldBorderX), (gameFieldHight / 2.0 + fieldBorderY), 4.0};
 	BackGround bkGround{fieldBorderX, fieldBorderY};
-	Platform platform{ (gameFieldWidth / 2.0 + fieldBorderX), (fieldBorderY + gameFieldHight), 5.0};
+	Platform platform{ (gameFieldWidth / 2.0 + fieldBorderX), (fieldBorderY + gameFieldHight), 8.0};
+	Collisions collisions;
 
 	while(window.isOpen())
     {
@@ -154,6 +192,7 @@ int main()
 		
 		ball.update();
 		platform.update();
+		collisions.ballAndPlatform(platform, ball);
 		
 		window.clear(sf::Color::White);
 		window.draw(bkGround.shape);
