@@ -13,12 +13,13 @@
 #define brickWidth 80
 #define brickHight 20
 
-class GameData{
+class Game{
 	char *lvlMap;
 	int score;
 	int life;
 public:
-	GameData();
+	Game();
+	void GameLoop();
 	void newLvl();
 	void addScore(int add) { score += add; };
 	int getScore() { return score; };
@@ -152,17 +153,27 @@ public:
 	void update();
 };
 
-class BackGround{
-	sf::Texture texture;
+class BackGround : public sf::Drawable{
+	sf::Texture gameFieldT;
+	sf::Texture mainBkGroundT;
+	sf::Sprite gameField;
+	sf::Sprite mainBkGround;
 public:
-	sf::Sprite sprite;
-	//sf::RectangleShape shape;
-	BackGround(float startX, float startY)
+	BackGround()
 	{
-		if (!texture.loadFromFile("backGround.png"))
-			std::cout << "can't find a backGround image\n";
-		sprite.setTexture(texture);
-		sprite.setPosition(startX, startY);
+		if (!gameFieldT.loadFromFile("backGround.png"))
+			std::cout << "can't find a game field image\n";
+		gameField.setTexture(gameFieldT);
+		gameField.setPosition(fieldBorderX, fieldBorderY);
+		if (!mainBkGroundT.loadFromFile("MainBk.png"))
+			std::cout << "can't find a main back ground image\n";
+		mainBkGround.setTexture(mainBkGroundT);
+		mainBkGround.setPosition(0, 0);
+	};
+	virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const
+	{
+		target.draw(mainBkGround, states);
+		target.draw(gameField, states);
 	};
 };
 
@@ -229,7 +240,7 @@ int main()
 	
 	//объекты
 	Ball ball{7.0};
-	BackGround bkGround{fieldBorderX, fieldBorderY};
+	BackGround bkGround;
 	Platform platform{ (gameFieldWidth / 2.0 + fieldBorderX), (fieldBorderY + gameFieldHight), 8.0};
 	Collisions collisions;
 	
@@ -274,7 +285,7 @@ int main()
 		}
 		
 		window.clear(sf::Color::Black);
-		window.draw(bkGround.sprite);
+		window.draw(bkGround);
 		window.draw(platform.shape);
 		//прорисовка вектора кирпичей
 		for (int i = 0; i < bricks.size(); i++)
