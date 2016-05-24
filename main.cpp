@@ -39,7 +39,7 @@ public:
 
 class Brick : public Visual{
 	int durability;
-	bool notBroken;
+	bool broken;
 	sf::Texture normalTexture;
 	sf::Texture brokenTexture;
 	sf::FloatRect spriteRect;
@@ -69,7 +69,7 @@ public:
 		spriteRect = sprite.getGlobalBounds();
 		sprite.setOrigin(spriteRect.width / 2.0, spriteRect.height / 2.0);
 		durability = 1;//временно надежность у всех одинаковая
-		notBroken = true;
+		broken = false;
 	}
 	float x()      { return sprite.getPosition().x; }
 	float y()      { return sprite.getPosition().y; }
@@ -77,7 +77,12 @@ public:
     float right()  { return x() + spriteRect.width / 2.0;  }
     float top()    { return y() - spriteRect.height / 2.0; }
     float bottom() { return y() + spriteRect.height / 2.0; }
-	
+	void hit()
+	{
+		durability--;
+		if (durability == 0) broken = true;
+	};
+	bool brickBroken() { return broken; }
 };
 
 class DinamicVisual : public Visual{
@@ -88,6 +93,10 @@ public:
 	virtual void update()  = 0;
 	void setSpeedX(float newSpeed){ speed.x = newSpeed; }
 	void setSpeedY(float newSpeed){ speed.y = newSpeed; }
+	void setSpeedXPlus()  { speed.x =  d_speed; }
+	void setSpeedXMinus() { speed.x = -d_speed; }
+	void setSpeedYPlus()  { speed.y =  d_speed; }
+	void setSpeedYMinus() { speed.y = -d_speed; }
 	float get_d_speed(){ return d_speed; }
 };
 
@@ -231,6 +240,32 @@ public:
 		}
 		else return;
 	};
+	void ballAndBrick(Brick& brickObj, Ball& ballObj)
+	{
+		//проверяем было ли пересечение мяча с кирпичиком
+		if(!objectsIntersection(brickObj, ballObj)) return;
+		//в случае пересечния - удар
+		brickObj.hit();
+		//необходимо выяснить с какой стороны мяч сильнее "наехал" на кирпич
+		//дельты пересечений со всех стороны
+		float deltaLeft   = abs(ballObj.right()  - brickObj.left()  );
+		float deltaRight  = abs(ballObj.left()   - brickObj.right() );
+		float deltaTop    = abs(ballObj.bottom() - brickObj.top()   );
+		float deltaBottom = abs(ballObj.top()    - brickObj.bottom());
+		bool leftDir = (deltaLeft < deltaRight);
+		bool topDir  = (deltaTop  < deltaBottom);
+		float minDeltaX = (leftDir) ? deltaLeft : deltaRight;
+		float minDeltaY = (topDir ) ? deltaTop  : deltaBottom;
+		//значение дельты указывает на направление удара - горизонтальное или вертикальное
+		//если горизотальная дельта больше - значит мяч летел вертикально и пересек границы кирпича
+		//в ином случае - мяч прилетел в большей степени по горизонтали
+		if (minDeltaX > minDeltaY) //горизонтальное напрвление
+			if (topDir) ballObj.setSpeedYMinus();
+			       else ballObj.setSpeedYPlus();
+		else //вертикальный удар
+			if (leftDir) ballObj.setSpeedXMinus();
+			        else ballObj.setSpeedXPlus();
+	};
 };
 
 int main()
@@ -239,7 +274,7 @@ int main()
 	window.setFramerateLimit(60);
 	
 	//объекты
-	Ball ball{7.0};
+	Ball ball{5.0};
 	BackGround bkGround;
 	Platform platform{ (gameFieldWidth / 2.0 + fieldBorderX), (fieldBorderY + gameFieldHight), 8.0};
 	Collisions collisions;
@@ -274,7 +309,6 @@ int main()
 					window.close();
 				break;
 			}
-		
 		}
 		
 		if (gameStart)
@@ -282,6 +316,9 @@ int main()
 			ball.update();
 			platform.update();
 			collisions.ballAndPlatform(platform, ball);
+			//проверка столкновения мяча с кирпичиками
+			for (int i = 0; i < bricks.size(); i++)
+				if (!bricks[i].brickBroken()) collisions.ballAndBrick(bricks[i], ball);
 		}
 		
 		window.clear(sf::Color::Black);
@@ -289,7 +326,7 @@ int main()
 		window.draw(platform.shape);
 		//прорисовка вектора кирпичей
 		for (int i = 0; i < bricks.size(); i++)
-			window.draw(bricks[i].sprite);
+			if (!bricks[i].brickBroken()) window.draw(bricks[i].sprite);
 		window.draw(ball.shape);
 
         window.display();
