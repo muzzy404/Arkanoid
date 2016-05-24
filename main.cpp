@@ -41,12 +41,14 @@ class Brick : public Visual{
 	int durability;
 	bool broken;
 public:
-	Brick(float startX, float startY)
+	Brick(float startX, float startY, float definedDurability = 0, int color = 0)
 	{
-		durability = 1 + std::rand() % 3; //случайное число от 1 до 3
-		int randSprite = 1 + std::rand() % 5; 
+		if (definedDurability == 0) durability = 1 + std::rand() % 3; //случайное число от 1 до 3
+		else durability = definedDurability;
+		//int randSprite = 1 + std::rand() % 5; 
+		if ((color <= 0) || (color > 5)) color = 1 + std::rand() % 5;
 		//загрузка необходимой текстуры - разные кирпичики
-		switch (randSprite)
+		switch (color)
 		{
 		case 1:
 			if (!texture.loadFromFile("br_blue.png"))
@@ -95,6 +97,7 @@ public:
 		}
 	};
 	bool brickBroken() { return broken; }
+	void makeInvisible(){ broken = true; }
 };
 
 class DinamicVisual : public Visual{
@@ -126,13 +129,13 @@ class Ball : public DinamicVisual{
 public:
 	virtual void setStartPosition()
 	{
+		lose = false;
 		float startX = gameFieldWidth / 2.0 + fieldBorderX + platformWidth / 2.0 - ballRadius;
 		float startY = gameFieldHight + fieldBorderY - 3.0 * platformHeight;
 		sprite.setPosition(startX, startY);
 	}
 	Ball(float ballSpeed)
     {
-		lose = false;
 		d_speed = ballSpeed;
 		speed.x = d_speed;
 		speed.y = -d_speed;
@@ -144,6 +147,7 @@ public:
 		spriteRect = sprite.getGlobalBounds();
 		sprite.setOrigin(spriteRect.width / 2.0, spriteRect.height / 2.0);
 	};
+	bool onGround(){ return lose; }
 	virtual void update()
 	{
 		if (!lose)
@@ -295,6 +299,7 @@ int main()
 			float brickX = (i + 1) * (brickWidth + 2) + fieldBorderX + ((gameFieldWidth - (brickWidth + 3) * maxBricksX) / 2.0) - brickWidth / 2.0;
 			float brickY = (j + 1) * (brickHight + 2) + fieldBorderY - brickHight / 2.0;
 			Brick* newBrick = new Brick(brickX, brickY);
+			if (i == j) newBrick->makeInvisible();
 			bricks.push_back(*newBrick);
 		}
 
@@ -341,6 +346,14 @@ int main()
  		while (!gameStart){
 			window.pollEvent(event);
 			if (event.key.code == sf::Keyboard::Space) gameStart = true;
+			if (event.key.code == sf::Keyboard::Escape) window.close();
+		}
+
+		if (ball.onGround())
+		{
+			gameStart = false;
+			ball.setStartPosition();
+			platform.setStartPosition();
 		}
     }
 	return 0;
