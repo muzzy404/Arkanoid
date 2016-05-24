@@ -271,8 +271,37 @@ public:
 	};
 };
 
+class Life : public Visual{
+	int lifeNumber;
+public:
+	Life()
+	{
+		lifeNumber = 3;
+		if (!texture.loadFromFile("Life.png"))
+			std::cout << "can't find a life image\n";
+		texture.setSmooth(true);
+		sprite.setTexture(texture);
+		sprite.setTextureRect(sf::IntRect(0, 120, 180, 60));
+		spriteRect = sprite.getGlobalBounds();
+		sprite.setOrigin(spriteRect.width, 0);
+		sprite.setPosition((screenWidth - 20), fieldBorderY / 2.0);
+	};
+	bool noLife(){ return (lifeNumber == 0) ? true : false; }
+	void newLvl()
+	{
+		lifeNumber = 3;
+		sprite.setTextureRect(sf::IntRect(0, 120, 180, 60));
+	};
+	void ballFall()
+	{
+		lifeNumber--;
+		if (lifeNumber != 0) sprite.setTextureRect(sf::IntRect(0, ((lifeNumber - 1) * 60), 180, 60));
+		                else sprite.setTextureRect(sf::IntRect(0, 0, 60, 60));
+	};
+};
+
 class Game{
-	int life;
+	Life life;
 	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
 public:
 	std::vector<Brick> bricks;
@@ -305,8 +334,75 @@ public:
 		bricks.clear();
 	};
 	void GameLoop();
-	int getLife() { return life; };
-	void loseLife() { if (life > 0) life--; };
+	void lvlLoop(sf::RenderWindow &openedWindow, BackGround& bkGr, float ballStartSpeed)
+	{
+		Ball ball{ ballStartSpeed };
+		Platform platform{ 8.0 };
+		Collisions collisions;
+		newLvl();
+		life.newLvl();
+		bool play = true;
+		bool ballFly = false;
+		sf::Event event;
+
+		while (play)
+		{
+			while (openedWindow.pollEvent(event))
+			{
+				switch (event.type)
+				{
+				case sf::Event::Closed:
+					openedWindow.close();
+					break;
+				case sf::Event::KeyPressed:
+					if (event.key.code == sf::Keyboard::Escape)
+						openedWindow.close();
+						//здесь будет возврат в будущее меню
+					break;
+				}
+			}
+
+			if (ballFly)
+			{
+				ball.update();
+				platform.update();
+				collisions.ballAndPlatform(platform, ball);
+				//проверка столкновения мяча с кирпичиками
+				for (int i = 0; i < bricks.size(); i++)
+					if (!bricks[i].brickBroken()) collisions.ballAndBrick(bricks[i], ball);
+			}
+
+			openedWindow.clear(sf::Color::Black);
+			openedWindow.draw(bkGr);
+			openedWindow.draw(platform.sprite);
+			//прорисовка вектора кирпичей
+			for (int i = 0; i < bricks.size(); i++)
+				if (!bricks[i].brickBroken()) openedWindow.draw(bricks[i].sprite);
+			openedWindow.draw(ball.sprite);
+			openedWindow.draw(life.sprite);
+
+			openedWindow.display();
+
+			while (!ballFly){
+				openedWindow.pollEvent(event);
+				if (event.key.code == sf::Keyboard::Space) ballFly = true;
+				if (event.key.code == sf::Keyboard::Escape) openedWindow.close(); //сделать выход в меню!
+			}
+			//если мяч упал, необходимо отнять жизнь
+			if (ball.onGround())
+			{
+				ballFly = false;
+				life.ballFall();
+				//если еще есть жизни, вернуть мяч на начальную позицию
+				if (!life.noLife())
+				{
+					ball.setStartPosition();
+					platform.setStartPosition();
+				}
+				else play = false;
+			}
+		}
+	};
 };
 
 int main()
@@ -315,20 +411,13 @@ int main()
 	window.setFramerateLimit(60);
 	
 	//объекты
-	Ball ball{4.0};
 	BackGround bkGround;
-	Platform platform{8.0};
-	Collisions collisions;
-	
 	Game game;
-	game.newLvl();
 
 	sf::Event event;
 
-	bool gameStart = false;
-
-	while(window.isOpen())
-    {
+	while (window.isOpen())
+	{
 		while (window.pollEvent(event))
 		{
 			switch (event.type)
@@ -342,39 +431,10 @@ int main()
 				break;
 			}
 		}
-		
-		if (gameStart)
-		{
-			ball.update();
-			platform.update();
-			collisions.ballAndPlatform(platform, ball);
-			//проверка столкновения мяча с кирпичиками
-			for (int i = 0; i < game.bricks.size(); i++)
-				if (!game.bricks[i].brickBroken()) collisions.ballAndBrick(game.bricks[i], ball);
-		}
-		
 		window.clear(sf::Color::Black);
 		window.draw(bkGround);
-		window.draw(platform.sprite);
-		//прорисовка вектора кирпичей
-		for (int i = 0; i < game.bricks.size(); i++)
-			if (!game.bricks[i].brickBroken()) window.draw(game.bricks[i].sprite);
-		window.draw(ball.sprite);
 
-        window.display();
-
- 		while (!gameStart){
-			window.pollEvent(event);
-			if (event.key.code == sf::Keyboard::Space) gameStart = true;
-			if (event.key.code == sf::Keyboard::Escape) window.close();
-		}
-
-		if (ball.onGround())
-		{
-			gameStart = false;
-			ball.setStartPosition();
-			platform.setStartPosition();
-		}
-    }
+		game.lvlLoop(window, bkGround, 4.0);
+	}
 	return 0;
 }
