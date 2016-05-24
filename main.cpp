@@ -11,17 +11,10 @@
 #define gameFieldHight (0.90 * screenHight)
 #define fieldBorderX   (0.05 * screenWidth)
 #define fieldBorderY   (0.05 * screenHight)
-#define brickWidth 60
-#define brickHight 15
-
-class Game{
-	int life;
-public:
-	Game();
-	void GameLoop();
-	int getLife() { return life; };
-	void loseLife() { if (life > 0) life--; };
-};
+#define brickWidth  60
+#define brickHight  15
+#define maxInLine   6
+#define maxInColumn 18
 
 class Visual{
 protected:
@@ -278,6 +271,44 @@ public:
 	};
 };
 
+class Game{
+	int life;
+	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
+public:
+	std::vector<Brick> bricks;
+	Game()
+	{
+		for (int j = 0; j < maxInColumn; j++)
+			for (int i = 0; i < maxInLine; i++)
+			{
+				//заранее вычислим все координаты всех возможных кирпичей и поместим их в матрицу
+				allBricksCoordinates[i][j].x = (i + 1) * (brickWidth + 4) + fieldBorderX + ((gameFieldWidth - 4 - (brickWidth + 4) * maxInLine) / 2.0) - brickWidth / 2.0;
+				allBricksCoordinates[i][j].y = (j + 1) * (brickHight + 2) + fieldBorderY - brickHight / 2.0;
+			}
+	};
+	void newLvl()
+	{
+		//в дальнейшем в этой функции будет производиться считывание карты расстановки кирпичей
+		//-----------------------------------------------------------------------------------------
+		//если в конструкторе не задана прочность и цвет кирпича, они выбираются случайным способом
+		//поэтому необходимо использовать srand перед генерацией кирпичей
+		srand(time(NULL));
+		for (int j = 0; j < maxInColumn; j++)
+			for (int i = 0; i < maxInLine; i++)
+			{
+				Brick* newBrick = new Brick(allBricksCoordinates[i][j].x, allBricksCoordinates[i][j].y);
+				bricks.push_back(*newBrick);
+			}
+	};
+	void lvlOver()
+	{
+		bricks.clear();
+	};
+	void GameLoop();
+	int getLife() { return life; };
+	void loseLife() { if (life > 0) life--; };
+};
+
 int main()
 {
 	sf::RenderWindow window(sf::VideoMode(screenWidth, screenHight), "Arkanoid");
@@ -289,19 +320,8 @@ int main()
 	Platform platform{8.0};
 	Collisions collisions;
 	
-	//временное размещение кирпичей рядами без карты уровня
-	const int maxBricksX = 6;
-	std::vector<Brick> bricks;
-	srand(time(NULL));
-	for (int i = 0; i < maxBricksX; i++)
-		for (int j = 0; j < 10; j++)
-		{
-			float brickX = (i + 1) * (brickWidth + 2) + fieldBorderX + ((gameFieldWidth - (brickWidth + 3) * maxBricksX) / 2.0) - brickWidth / 2.0;
-			float brickY = (j + 1) * (brickHight + 2) + fieldBorderY - brickHight / 2.0;
-			Brick* newBrick = new Brick(brickX, brickY);
-			if (i == j) newBrick->makeInvisible();
-			bricks.push_back(*newBrick);
-		}
+	Game game;
+	game.newLvl();
 
 	sf::Event event;
 
@@ -329,16 +349,16 @@ int main()
 			platform.update();
 			collisions.ballAndPlatform(platform, ball);
 			//проверка столкновения мяча с кирпичиками
-			for (int i = 0; i < bricks.size(); i++)
-				if (!bricks[i].brickBroken()) collisions.ballAndBrick(bricks[i], ball);
+			for (int i = 0; i < game.bricks.size(); i++)
+				if (!game.bricks[i].brickBroken()) collisions.ballAndBrick(game.bricks[i], ball);
 		}
 		
 		window.clear(sf::Color::Black);
 		window.draw(bkGround);
 		window.draw(platform.sprite);
 		//прорисовка вектора кирпичей
-		for (int i = 0; i < bricks.size(); i++)
-			if (!bricks[i].brickBroken()) window.draw(bricks[i].sprite);
+		for (int i = 0; i < game.bricks.size(); i++)
+			if (!game.bricks[i].brickBroken()) window.draw(game.bricks[i].sprite);
 		window.draw(ball.sprite);
 
         window.display();
