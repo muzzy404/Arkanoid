@@ -251,10 +251,10 @@ public:
 		}
 		else return;
 	};
-	void ballAndBrick(Brick& brickObj, Ball& ballObj)
+	bool ballAndBrick(Brick& brickObj, Ball& ballObj)
 	{
 		//проверяем было ли пересечение мяча с кирпичиком
-		if(!objectsIntersection(brickObj, ballObj)) return;
+		if(!objectsIntersection(brickObj, ballObj)) return false;
 		//в случае пересечния - удар
 		brickObj.hit();
 		//необходимо выяснить с какой стороны мяч сильнее "наехал" на кирпич
@@ -276,6 +276,7 @@ public:
 		else //вертикальный удар
 			if (leftDir) ballObj.setSpeedXMinus();
 			        else ballObj.setSpeedXPlus();
+		return brickObj.brickBroken();
 	};
 };
 
@@ -316,6 +317,7 @@ class Game{
 	Life life;
 	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
 	int lvlMap[maxInLine][maxInColumn];
+	int remainedBricks;
 public:
 	std::vector<Brick> bricks;
 	Game()
@@ -333,14 +335,18 @@ public:
 		std::ifstream input;
 		input.open(lvl);
 		if (!input.is_open()) // если файл не открыт
-			std::cout << "Карта уровня не найдена!\n"; // сообщить об этом
+			std::cout << "lvl map not found!\n"; // сообщить об этом
 		else
 		{
+			remainedBricks = 0;
+			std::cout << "lvl bricks map\n";
 			for (int j = 0; j < maxInColumn; j++)
 				for (int i = 0; i < maxInLine; i++)
 				{
 					input >> lvlMap[i][j];
+					if (lvlMap[i][j] != 0) remainedBricks++;
 					std::cout << lvlMap[i][j] << " ";
+					//печать карты в консоль для проверки
 					if (i == (maxInLine - 1)) std::cout << std::endl;
 				}
 			input.close();
@@ -366,18 +372,16 @@ public:
 		bricks.clear();
 	};
 	void GameLoop();
-	void lvlLoop(sf::RenderWindow &openedWindow, BackGround& bkGr, float ballStartSpeed)
+	bool lvlLoop(sf::RenderWindow &openedWindow, BackGround& bkGr, float ballStartSpeed, char currentLvlMap[10])
 	{
 		Ball ball{ ballStartSpeed };
 		Platform platform{ 8.0 };
 		Collisions collisions;
-		newLvl("lvl_01.txt");
+		newLvl(currentLvlMap); //размещение кирпичей по карте
 		life.newLvl();
-		bool play = true;
 		bool ballFly = false;
 		sf::Event event;
-
-		while (play)
+		while (true)
 		{
 			while (openedWindow.pollEvent(event))
 			{
@@ -388,12 +392,14 @@ public:
 					break;
 				case sf::Event::KeyPressed:
 					if (event.key.code == sf::Keyboard::Escape)
-						openedWindow.close();
-						//здесь будет возврат в будущее меню
+					{
+						lvlOver();
+						return false; //уровень не пройден, выход с уровня по желанию пользователя
+					}
 					break;
 				}
 			}
-
+			//если мяч находится в полете, нужно обновить положение объектов и проверить столкновения
 			if (ballFly)
 			{
 				ball.update();
@@ -401,24 +407,42 @@ public:
 				collisions.ballAndPlatform(platform, ball);
 				//проверка столкновения мяча с кирпичиками
 				for (int i = 0; i < bricks.size(); i++)
-					if (!bricks[i].brickBroken()) collisions.ballAndBrick(bricks[i], ball);
+					if (!bricks[i].brickBroken())
+						if (collisions.ballAndBrick(bricks[i], ball))
+						{
+							remainedBricks--;
+							std::cout << "Bricks left: " << remainedBricks << std::endl;
+						}
 			}
-
 			openedWindow.clear(sf::Color::Black);
 			openedWindow.draw(bkGr);
 			openedWindow.draw(platform.sprite);
+			//если еще остались кирпичи
 			//прорисовка вектора кирпичей
-			for (int i = 0; i < bricks.size(); i++)
-				if (!bricks[i].brickBroken()) openedWindow.draw(bricks[i].sprite);
+			if (remainedBricks != 0)
+			{
+				for (int i = 0; i < bricks.size(); i++)
+					if (!bricks[i].brickBroken()) openedWindow.draw(bricks[i].sprite);
+			}
+			else
+			{
+				lvlOver();
+				return true; //кирпичей больше нет, уровень пройден
+			}
 			openedWindow.draw(ball.sprite);
 			openedWindow.draw(life.sprite);
 
 			openedWindow.display();
-
-			while (!ballFly){
+			//если мяч лежит на платформе, ожидать нажатия на пробел для начала игры
+			while (!ballFly)
+			{
 				openedWindow.pollEvent(event);
 				if (event.key.code == sf::Keyboard::Space) ballFly = true;
-				if (event.key.code == sf::Keyboard::Escape) openedWindow.close(); //сделать выход в меню!
+				if (event.key.code == sf::Keyboard::Escape)
+				{
+					lvlOver();
+					return false; //уровень не пройден
+				}
 			}
 			//если мяч упал, необходимо отнять жизнь
 			if (ball.onGround())
@@ -431,10 +455,10 @@ public:
 					ball.setStartPosition();
 					platform.setStartPosition();
 				}
-				else
+				else //жизни закончились
 				{
-					play = false;
 					lvlOver();
+					return false; //уровень не пройден
 				}
 			}
 		}
@@ -470,7 +494,7 @@ int main()
 		window.clear(sf::Color::Black);
 		window.draw(bkGround);
 
-		game.lvlLoop(window, bkGround, 4.0);
+		if (game.lvlLoop(window, bkGround, 4.0, "lvl_01.txt")) game.lvlLoop(window, bkGround, 4.0, "lvl_02.txt");
 	}
 	return 0;
 }
