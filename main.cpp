@@ -115,7 +115,7 @@ public:
 	void setSpeedXMinus() { speed.x = -d_speed; }
 	void setSpeedYPlus()  { speed.y =  d_speed; }
 	void setSpeedYMinus() { speed.y = -d_speed; }
-	void set_d_speen(float new_d_speed){ d_speed = new_d_speed; }
+	void set_d_speed(float new_d_speed){ d_speed = new_d_speed; }
 	float get_d_speed(){ return d_speed; }
 };
 
@@ -315,13 +315,18 @@ public:
 };
 
 class Game{
+	sf::Texture texture;
+	sf::Sprite startComplPause;
 	Life life;
 	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
 	int lvlMap[maxInLine][maxInColumn];
-	int remainedBricks;
+	int remainedBricks, allBricks;
 	sf::Music gameMusic;
-public:
 	std::vector<Brick> bricks;
+	void setStart(){ startComplPause.setTextureRect(sf::IntRect(0, 0, gameFieldWidth, gameFieldHight)); }
+	void setLvlComplete(){ startComplPause.setTextureRect(sf::IntRect(gameFieldWidth, 0, gameFieldWidth, gameFieldHight)); }
+	void setLvlPause(){ startComplPause.setTextureRect(sf::IntRect(2 * gameFieldWidth, 0, gameFieldWidth, gameFieldHight)); }
+public:
 	Game()
 	{
 		for (int j = 0; j < maxInColumn; j++)
@@ -334,6 +339,13 @@ public:
 		if (!gameMusic.openFromFile("GamePlay.wav")) std::cout << "can't fian a game play music file\n";
 		gameMusic.setVolume(50);
 		gameMusic.setLoop(true);
+		//спрайт для разделения периодов игры
+		if (!texture.loadFromFile("StartCompletePause.png"))
+			std::cout << "can't find an image\n";
+		texture.setSmooth(true);
+		startComplPause.setTexture(texture);
+		startComplPause.setPosition(fieldBorderX, fieldBorderY);
+		setStart();
 	};
 	void uploadLvlMap(char lvl[10])
 	{
@@ -354,6 +366,7 @@ public:
 					//печать карты в консоль для проверки
 					if (i == (maxInLine - 1)) std::cout << std::endl;
 				}
+			allBricks = remainedBricks;
 			input.close();
 		}
 	};
@@ -420,11 +433,14 @@ public:
 			openedWindow.draw(bkGr);
 			openedWindow.draw(platform.sprite);
 			//если еще остались кирпичи
-			//прорисовка вектора кирпичей
 			if (remainedBricks != 0)
 			{
+				//прорисовка вектора кирпичей
 				for (int i = 0; i < bricks.size(); i++)
 					if (!bricks[i].brickBroken()) openedWindow.draw(bricks[i].sprite);
+				//ускорение мячика
+				if (remainedBricks == (allBricks / 2)) ball.set_d_speed(ballStartSpeed + 1.0);
+				if (remainedBricks == (allBricks / 4)) ball.set_d_speed(ballStartSpeed + 1.7);
 			}
 			else
 			{
@@ -465,7 +481,7 @@ public:
 			}
 		}
 	};
-	void GameLoop()
+	void GameLoop(int gameLvl = 1)
 	{
 		sf::RenderWindow window(sf::VideoMode(screenWidth, screenHight), "Dora Arkanoid");
 		window.setFramerateLimit(60);
@@ -474,25 +490,58 @@ public:
 		gameMusic.play();
 		while (window.isOpen())
 		{
-			while (window.pollEvent(event))
+			setStart();
+			window.clear(sf::Color::Black);
+			window.draw(bkGround);
+			window.draw(startComplPause);
+			window.display();
+			//отображать старт, пока пользователь не нажмет enter
+			while (true)
 			{
-				switch (event.type)
+				window.pollEvent(event);
+				if ((event.key.code == sf::Keyboard::Escape) || (event.type == sf::Event::Closed))
 				{
-				case sf::Event::Closed:
+					window.close();
+					return;
+				}
+				if (event.key.code == sf::Keyboard::Return) break;
+			}
+			//запуск необходимого уровня
+			while (gameLvl < 5)
+			{
+				bool nextLvl = false;
+				switch (gameLvl)
+				{
+				case 1:
+					if (lvlLoop(window, bkGround, 4.0, "lvl_01.txt")) nextLvl = true;
+					break;
+				case 2:
+					if (lvlLoop(window, bkGround, 4.0, "lvl_02.txt")) nextLvl = true;
+					break;
+				case 3:
+					if (lvlLoop(window, bkGround, 4.0, "lvl_03.txt")) nextLvl = true;
+					break;
+				case 4:
+					//конец игры
 					window.close();
 					return;
 					break;
-				case sf::Event::KeyPressed:
-					if (event.key.code == sf::Keyboard::Escape)
-						window.close();
-					break;
+				}
+				//если уровень завершен успешно, отобразить сообщение и подготовить переход на следующий
+				if (nextLvl)
+				{
+					gameLvl++;
+					setLvlComplete();
+					window.draw(startComplPause);
+					window.display();
+					while (true) if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return))) break;
+				}
+				else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
+				{
+					window.close();
+					return;
 				}
 			}
-
-			window.clear(sf::Color::Black);
-			window.draw(bkGround);
-
-			if (lvlLoop(window, bkGround, 4.0, "lvl_01.txt")) lvlLoop(window, bkGround, 4.0, "lvl_02.txt");
 		}
 	};
 };
