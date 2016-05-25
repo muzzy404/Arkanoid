@@ -1,6 +1,7 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <ctime>
+#include <fstream>
 
 #define screenWidth 800
 #define screenHight 600
@@ -34,12 +35,19 @@ class Brick : public Visual{
 	int durability;
 	bool broken;
 public:
-	Brick(float startX, float startY, float definedDurability = 0, int color = 0)
+	Brick(float startX, float startY, int color = -1, float definedDurability = 0)
 	{
+		if (color == 0)
+		{
+			//если цвет в файле задан нулем, тогда на этом месте нет кирпича
+			//значит его нужно не учитывать при подсчетах пересечений
+			broken = false;
+			return;
+		}
 		if (definedDurability == 0) durability = 1 + std::rand() % 3; //случайное число от 1 до 3
 		else durability = definedDurability;
 		//int randSprite = 1 + std::rand() % 5; 
-		if ((color <= 0) || (color > 5)) color = 1 + std::rand() % 5;
+		if ((color < 0) || (color > 5)) color = 1 + std::rand() % 5;
 		//загрузка необходимой текстуры - разные кирпичики
 		switch (color)
 		{
@@ -281,28 +289,33 @@ public:
 			std::cout << "can't find a life image\n";
 		texture.setSmooth(true);
 		sprite.setTexture(texture);
-		sprite.setTextureRect(sf::IntRect(0, 120, 180, 60));
 		spriteRect = sprite.getGlobalBounds();
-		sprite.setOrigin(spriteRect.width, 0);
 		sprite.setPosition((screenWidth - 20), fieldBorderY / 2.0);
 	};
 	bool noLife(){ return (lifeNumber == 0) ? true : false; }
 	void newLvl()
 	{
 		lifeNumber = 3;
-		sprite.setTextureRect(sf::IntRect(0, 120, 180, 60));
+		sprite.setTextureRect(sf::IntRect(0, 0, 180, 60));
+		sprite.setOrigin(spriteRect.width, 0);
 	};
 	void ballFall()
 	{
 		lifeNumber--;
-		if (lifeNumber != 0) sprite.setTextureRect(sf::IntRect(0, ((lifeNumber - 1) * 60), 180, 60));
-		                else sprite.setTextureRect(sf::IntRect(0, 0, 60, 60));
+		std::cout << "life: "<< lifeNumber << std::endl;
+		if (lifeNumber != 0)
+		{
+			sprite.setTextureRect(sf::IntRect(0, 0, (lifeNumber * 60), 60));
+			sprite.setOrigin(60 * lifeNumber, 0);
+		}
+		else sprite.setTextureRect(sf::IntRect(0, 0, 0, 0));
 	};
 };
 
 class Game{
 	Life life;
 	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
+	int lvlMap[maxInLine][maxInColumn];
 public:
 	std::vector<Brick> bricks;
 	Game()
@@ -315,9 +328,28 @@ public:
 				allBricksCoordinates[i][j].y = (j + 1) * (brickHight + 2) + fieldBorderY - brickHight / 2.0;
 			}
 	};
-	void newLvl()
+	void uploadLvlMap(char lvl[10])
+	{
+		std::ifstream input;
+		input.open(lvl);
+		if (!input.is_open()) // если файл не открыт
+			std::cout << "Карта уровня не найдена!\n"; // сообщить об этом
+		else
+		{
+			for (int j = 0; j < maxInColumn; j++)
+				for (int i = 0; i < maxInLine; i++)
+				{
+					input >> lvlMap[i][j];
+					std::cout << lvlMap[i][j] << " ";
+					if (i == (maxInLine - 1)) std::cout << std::endl;
+				}
+			input.close();
+		}
+	};
+	void newLvl(char lvlFile[10])
 	{
 		//в дальнейшем в этой функции будет производиться считывание карты расстановки кирпичей
+		uploadLvlMap(lvlFile);
 		//-----------------------------------------------------------------------------------------
 		//если в конструкторе не задана прочность и цвет кирпича, они выбираются случайным способом
 		//поэтому необходимо использовать srand перед генерацией кирпичей
@@ -325,7 +357,7 @@ public:
 		for (int j = 0; j < maxInColumn; j++)
 			for (int i = 0; i < maxInLine; i++)
 			{
-				Brick* newBrick = new Brick(allBricksCoordinates[i][j].x, allBricksCoordinates[i][j].y);
+				Brick* newBrick = new Brick(allBricksCoordinates[i][j].x, allBricksCoordinates[i][j].y, lvlMap[i][j]);
 				bricks.push_back(*newBrick);
 			}
 	};
@@ -339,7 +371,7 @@ public:
 		Ball ball{ ballStartSpeed };
 		Platform platform{ 8.0 };
 		Collisions collisions;
-		newLvl();
+		newLvl("lvl_01.txt");
 		life.newLvl();
 		bool play = true;
 		bool ballFly = false;
@@ -399,7 +431,11 @@ public:
 					ball.setStartPosition();
 					platform.setStartPosition();
 				}
-				else play = false;
+				else
+				{
+					play = false;
+					lvlOver();
+				}
 			}
 		}
 	};
