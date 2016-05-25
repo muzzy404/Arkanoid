@@ -2,6 +2,7 @@
 #include <iostream>
 #include <ctime>
 #include <fstream>
+#include <SFML/Audio.hpp>
 
 #define screenWidth 800
 #define screenHight 600
@@ -318,6 +319,7 @@ class Game{
 	sf::Vector2f allBricksCoordinates[maxInLine][maxInColumn];
 	int lvlMap[maxInLine][maxInColumn];
 	int remainedBricks;
+	sf::Music gameMusic;
 public:
 	std::vector<Brick> bricks;
 	Game()
@@ -329,6 +331,9 @@ public:
 				allBricksCoordinates[i][j].x = (i + 1) * (brickWidth + 4) + fieldBorderX + ((gameFieldWidth - 4 - (brickWidth + 4) * maxInLine) / 2.0) - brickWidth / 2.0;
 				allBricksCoordinates[i][j].y = (j + 1) * (brickHight + 2) + fieldBorderY - brickHight / 2.0;
 			}
+		if (!gameMusic.openFromFile("GamePlay.wav")) std::cout << "can't fian a game play music file\n";
+		gameMusic.setVolume(50);
+		gameMusic.setLoop(true);
 	};
 	void uploadLvlMap(char lvl[10])
 	{
@@ -354,9 +359,7 @@ public:
 	};
 	void newLvl(char lvlFile[10])
 	{
-		//в дальнейшем в этой функции будет производиться считывание карты расстановки кирпичей
 		uploadLvlMap(lvlFile);
-		//-----------------------------------------------------------------------------------------
 		//если в конструкторе не задана прочность и цвет кирпича, они выбираются случайным способом
 		//поэтому необходимо использовать srand перед генерацией кирпичей
 		srand(time(NULL));
@@ -371,7 +374,6 @@ public:
 	{
 		bricks.clear();
 	};
-	void GameLoop();
 	bool lvlLoop(sf::RenderWindow &openedWindow, BackGround& bkGr, float ballStartSpeed, char currentLvlMap[10])
 	{
 		Ball ball{ ballStartSpeed };
@@ -463,38 +465,41 @@ public:
 			}
 		}
 	};
+	void GameLoop()
+	{
+		sf::RenderWindow window(sf::VideoMode(screenWidth, screenHight), "Dora Arkanoid");
+		window.setFramerateLimit(60);
+		BackGround bkGround;
+		sf::Event event;
+		gameMusic.play();
+		while (window.isOpen())
+		{
+			while (window.pollEvent(event))
+			{
+				switch (event.type)
+				{
+				case sf::Event::Closed:
+					window.close();
+					return;
+					break;
+				case sf::Event::KeyPressed:
+					if (event.key.code == sf::Keyboard::Escape)
+						window.close();
+					break;
+				}
+			}
+
+			window.clear(sf::Color::Black);
+			window.draw(bkGround);
+
+			if (lvlLoop(window, bkGround, 4.0, "lvl_01.txt")) lvlLoop(window, bkGround, 4.0, "lvl_02.txt");
+		}
+	};
 };
 
 int main()
 {
-	sf::RenderWindow window(sf::VideoMode(screenWidth, screenHight), "Arkanoid");
-	window.setFramerateLimit(60);
-	
-	//объекты
-	BackGround bkGround;
 	Game game;
-
-	sf::Event event;
-
-	while (window.isOpen())
-	{
-		while (window.pollEvent(event))
-		{
-			switch (event.type)
-			{
-			case sf::Event::Closed:
-				window.close();
-				break;
-			case sf::Event::KeyPressed:
-				if (event.key.code == sf::Keyboard::Escape)
-					window.close();
-				break;
-			}
-		}
-		window.clear(sf::Color::Black);
-		window.draw(bkGround);
-
-		if (game.lvlLoop(window, bkGround, 4.0, "lvl_01.txt")) game.lvlLoop(window, bkGround, 4.0, "lvl_02.txt");
-	}
+	game.GameLoop();
 	return 0;
 }
