@@ -17,6 +17,7 @@
 #define brickHight  15
 #define maxInLine   6
 #define maxInColumn 18
+#define allLvls     4
 
 class Visual{
 protected:
@@ -118,12 +119,6 @@ public:
 	void set_d_speed(float new_d_speed){ d_speed = new_d_speed; }
 	float get_d_speed(){ return d_speed; }
 };
-
-bool objectsIntersection(Visual& first, Visual& second)
-{
-	return ((first.right() >= second.left()) && (first.left() <= second.right())
-		&& (first.bottom() >= second.top()) && (first.top() <= second.bottom()));
-}
 
 class Ball : public DinamicVisual{
 	bool lose;
@@ -238,6 +233,11 @@ public:
 
 //класс, проверяющий столкновения объектов
 class Collisions{
+	bool objectsIntersection(Visual& first, Visual& second)
+	{
+		return ((first.right() >= second.left()) && (first.left() <= second.right())
+			&& (first.bottom() >= second.top()) && (first.top() <= second.bottom()));
+	}
 public:
 	void ballAndPlatform(Platform& platformObj, Ball& ballObj)
 	{
@@ -515,7 +515,7 @@ public:
 				if (event.key.code == sf::Keyboard::Return) break;
 			}
 			//запуск необходимого уровня
-			while (gameLvl < 5)
+			while (gameLvl < (allLvls + 1))
 			{
 				bool nextLvl = false;
 				switch (gameLvl)
@@ -530,6 +530,9 @@ public:
 					if (lvlLoop(window, bkGround, 4.0, "lvl_03.txt")) nextLvl = true;
 					break;
 				case 4:
+					if (lvlLoop(window, bkGround, 4.0, "lvl_04.txt")) nextLvl = true;
+					break;
+				case 5:
 					//конец игры
 					window.close();
 					return;
