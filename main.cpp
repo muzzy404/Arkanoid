@@ -411,6 +411,9 @@ public:
 						lvlOver();
 						return false; //уровень не пройден, выход с уровня по желанию пользователя
 					}
+					if (event.key.code == sf::Keyboard::S)
+						if (gameMusic.getStatus() == sf::SoundSource::Playing) gameMusic.pause();
+						else gameMusic.play();
 					break;
 				}
 			}
@@ -534,7 +537,11 @@ public:
 					setLvlComplete();
 					window.draw(startComplPause);
 					window.display();
-					while (true) if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return))) break;
+					while (true) 
+					{
+						window.pollEvent(event);
+						if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Return))) break;
+					}
 				}
 				else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
 				{
