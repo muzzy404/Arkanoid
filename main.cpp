@@ -119,11 +119,10 @@ public:
 	float get_d_speed(){ return d_speed; }
 };
 
-template <class firstClass, class secondClass>
-bool objectsIntersection(firstClass& first, secondClass& second)
+bool objectsIntersection(Visual& first, Visual& second)
 {
-    return ((first.right()  >= second.left()) && (first.left() <= second.right())
-		 && (first.bottom() >= second.top() ) && (first.top() <= second.bottom()));
+	return ((first.right() >= second.left()) && (first.left() <= second.right())
+		&& (first.bottom() >= second.top()) && (first.top() <= second.bottom()));
 }
 
 class Ball : public DinamicVisual{
@@ -463,6 +462,12 @@ public:
 				{
 					lvlOver();
 					return false; //уровень не пройден
+				}
+				//отключить музыку
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
+				{
+					if (gameMusic.getStatus() == sf::SoundSource::Playing) gameMusic.pause();
+					                                                  else gameMusic.play();
 				}
 			}
 			//если мяч упал, необходимо отнять жизнь
