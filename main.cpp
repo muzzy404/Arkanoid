@@ -515,7 +515,7 @@ public:
 				if (event.key.code == sf::Keyboard::Return) break;
 			}
 			//запуск необходимого уровня
-			while (gameLvl < (allLvls + 1))
+			while (gameLvl < (allLvls + 2))
 			{
 				bool nextLvl = false;
 				switch (gameLvl)
