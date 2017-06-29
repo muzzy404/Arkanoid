@@ -7,6 +7,7 @@ This is a clone of popular Arkanoid game with my own graphics. This game is my f
 - GIMP for creation of all game graphic elements
 
 **Description of game**
+
 The player controls a paddle which prevents a ball from falling from the playing field, attempting to bounce it against a number of bricks. The ball striking a brick causes the brick to disappear. When all the bricks are gone, the player goes to the next level, where another pattern of bricks appears. Every brick has own random durability - the number of hits to make a brick to disappear.
 
 **Creation of level maps**
